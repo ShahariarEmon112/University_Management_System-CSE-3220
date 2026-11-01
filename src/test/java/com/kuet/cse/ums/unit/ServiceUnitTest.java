@@ -132,6 +132,34 @@ class ServiceUnitTest {
         verify(courseRepo, never()).save(any());
     }
 
+    // ---------------------------------------------------------------- 5
+    @Test
+    @DisplayName("U5: Enrolling twice in the same semester is rejected even if the semester is typed differently")
+    void duplicateEnrollmentWithDifferentSemesterCasingRejected() {
+        EnrollmentRepository enrollmentRepo = mock(EnrollmentRepository.class);
+        StudentRepository studentRepo = mock(StudentRepository.class);
+        CourseRepository courseRepo = mock(CourseRepository.class);
+        EnrollmentService service = new EnrollmentService(enrollmentRepo, studentRepo, courseRepo, mock(ResultRepository.class));
+
+        Student student = new Student();
+        student.setId(1L);
+        Course course = new Course();
+        course.setId(7L);
+        course.setCourseCode("CSE 3220");
+        when(studentRepo.findById(1L)).thenReturn(Optional.of(student));
+        when(courseRepo.findById(7L)).thenReturn(Optional.of(course));
+        // The student is already enrolled for "Fall 2026"
+        when(enrollmentRepo.existsByStudentIdAndCourseIdAndSemester(1L, 7L, "Fall 2026")).thenReturn(true);
+
+        EnrollmentDto dto = new EnrollmentDto();
+        dto.setStudentId(1L);
+        dto.setCourseId(7L);
+        dto.setSemester("  fall   2026 ");
+
+        assertThrows(BadRequestException.class, () -> service.enrollStudent(dto));
+        verify(enrollmentRepo, never()).save(any());
+    }
+
     // ---------------------------------------------------------------- 6
     @Test
     @DisplayName("U6: A teacher cannot grade a course assigned to another teacher")
