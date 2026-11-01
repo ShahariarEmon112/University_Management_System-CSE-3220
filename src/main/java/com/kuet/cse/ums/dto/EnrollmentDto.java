@@ -17,6 +17,8 @@ public class EnrollmentDto {
     private Long courseId;
     private String courseCode;
     private String courseTitle;
+    private Double credits;
+    private String teacherName;
 
     @NotBlank(message = "Semester is required")
     private String semester;
@@ -41,6 +43,10 @@ public class EnrollmentDto {
             dto.setCourseId(enrollment.getCourse().getId());
             dto.setCourseCode(enrollment.getCourse().getCourseCode());
             dto.setCourseTitle(enrollment.getCourse().getCourseTitle());
+            dto.setCredits(enrollment.getCourse().getCredits());
+            if (enrollment.getCourse().getTeacher() != null && enrollment.getCourse().getTeacher().getUser() != null) {
+                dto.setTeacherName(enrollment.getCourse().getTeacher().getUser().getFullName());
+            }
         }
         dto.setSemester(enrollment.getSemester());
         dto.setEnrollmentDate(enrollment.getEnrollmentDate());
@@ -101,6 +107,22 @@ public class EnrollmentDto {
 
     public void setCourseTitle(String courseTitle) {
         this.courseTitle = courseTitle;
+    }
+
+    public Double getCredits() {
+        return credits;
+    }
+
+    public void setCredits(Double credits) {
+        this.credits = credits;
+    }
+
+    public String getTeacherName() {
+        return teacherName;
+    }
+
+    public void setTeacherName(String teacherName) {
+        this.teacherName = teacherName;
     }
 
     public String getSemester() {

@@ -19,6 +19,8 @@ public class ResultDto {
     private Long courseId;
     private String courseCode;
     private String courseTitle;
+    private Double credits;
+    private String semester;
 
     @NotNull(message = "Marks are required")
     @DecimalMin(value = "0.0", message = "Marks cannot be negative")
@@ -50,7 +52,9 @@ public class ResultDto {
                 dto.setCourseId(result.getEnrollment().getCourse().getId());
                 dto.setCourseCode(result.getEnrollment().getCourse().getCourseCode());
                 dto.setCourseTitle(result.getEnrollment().getCourse().getCourseTitle());
+                dto.setCredits(result.getEnrollment().getCourse().getCredits());
             }
+            dto.setSemester(result.getEnrollment().getSemester());
         }
         dto.setMarks(result.getMarks());
         dto.setLetterGrade(result.getLetterGrade());
@@ -122,6 +126,22 @@ public class ResultDto {
 
     public void setCourseTitle(String courseTitle) {
         this.courseTitle = courseTitle;
+    }
+
+    public Double getCredits() {
+        return credits;
+    }
+
+    public void setCredits(Double credits) {
+        this.credits = credits;
+    }
+
+    public String getSemester() {
+        return semester;
+    }
+
+    public void setSemester(String semester) {
+        this.semester = semester;
     }
 
     public Double getMarks() {
