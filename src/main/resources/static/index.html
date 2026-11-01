@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KUET CSE 3220 - University Management System</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- Navigation bar -->
+  <nav class="navbar">
+    <div class="brand">
+      <span>🎓 KUET University Portal</span>
+      <span class="badge-tag">CSE 3220</span>
+    </div>
+    <div id="nav-user-panel" class="nav-actions" style="display: none;">
+      <span id="nav-user-info" style="font-weight: 500;"></span>
+      <span id="nav-user-role" class="badge"></span>
+      <button class="btn btn-danger" onclick="logout()">Logout</button>
+    </div>
+  </nav>
+
+  <div class="container">
+    <!-- Feedback message box -->
+    <div id="feedback-box" class="status-box"></div>
+
+    <!-- 1. Authentication View (Login & Register) -->
+    <div id="auth-view">
+      <div class="grid">
+        <!-- Login Card -->
+        <div class="card">
+          <h2 class="card-title">Portal Login</h2>
+          <form id="login-form" onsubmit="handleLogin(event)">
+            <div class="form-group">
+              <label for="login-username">Username</label>
+              <input type="text" id="login-username" class="form-control" required placeholder="e.g. admin or student_sakib">
+            </div>
+            <div class="form-group">
+              <label for="login-password">Password</label>
+              <input type="password" id="login-password" class="form-control" required placeholder="Enter password">
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
+          </form>
+
+          <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 0.8rem; color: var(--text-muted);">
+            <strong>Demo Accounts (Pre-loaded):</strong><br>
+            • Admin: <code>admin</code> / <code>admin123</code><br>
+            • Teachers: <code>dr_karim</code>, <code>prof_rahim</code>, <code>dr_nusrat</code> / <code>teacher123</code><br>
+            • Students: <code>student_sakib</code>, <code>student_tamim</code>, <code>student_mushfiq</code>, <code>student_mahmudullah</code> / <code>student123</code>
+          </div>
+        </div>
+
+        <!-- Student Self-Registration Card -->
+        <div class="card">
+          <h2 class="card-title">Student Registration</h2>
+          <form id="register-form" onsubmit="handleRegister(event)">
+            <div class="form-group">
+              <label for="reg-username">Username</label>
+              <input type="text" id="reg-username" class="form-control" required placeholder="unique username">
+            </div>
+            <div class="form-group">
+              <label for="reg-fullname">Full Name</label>
+              <input type="text" id="reg-fullname" class="form-control" required placeholder="Your full name">
+            </div>
+            <div class="form-group">
+              <label for="reg-email">Email</label>
+              <input type="email" id="reg-email" class="form-control" required placeholder="name@kuet.ac.bd">
+            </div>
+            <div class="form-group">
+              <label for="reg-password">Password</label>
+              <input type="password" id="reg-password" class="form-control" required minlength="6" placeholder="min 6 characters">
+            </div>
+            <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+              <div class="form-group">
+                <label for="reg-roll">Roll No.</label>
+                <input type="text" id="reg-roll" class="form-control" required placeholder="e.g. 2007010">
+              </div>
+              <div class="form-group">
+                <label for="reg-series">Series (Year)</label>
+                <input type="number" id="reg-series" class="form-control" required value="2022">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-outline" style="width: 100%;">Register as Student</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Role-specific Dashboard Views -->
+    <div id="dashboard-view" style="display: none;">
+
+      <!-- ADMIN DASHBOARD -->
+      <div id="admin-dashboard" style="display: none;">
+        <div class="card">
+          <div style="display: flex; gap: 1rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem;">
+            <button class="tab-btn active" onclick="switchAdminTab('users')">System Users</button>
+            <button class="tab-btn" onclick="switchAdminTab('courses')">Courses Management</button>
+            <button class="tab-btn" onclick="switchAdminTab('enrollments')">Enrollments</button>
+          </div>
+
+          <!-- Users Sub-tab -->
+          <div id="admin-users-tab">
+            <h3 class="card-title">Registered System Users</h3>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Full Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-users-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Courses Sub-tab -->
+          <div id="admin-courses-tab" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+              <h3 class="card-title" style="margin: 0;">Course Catalog</h3>
+            </div>
+            
+            <form id="create-course-form" onsubmit="handleCreateCourse(event)" style="background: #f8fafc; padding: 1rem; border-radius: var(--radius); margin-bottom: 1.5rem;">
+              <h4 style="margin-bottom: 0.5rem; font-size: 0.95rem;">Add New Course</h4>
+              <div class="grid" style="grid-template-columns: 1fr 2fr 1fr 1.5fr 1fr; gap: 0.5rem;">
+                <input type="text" id="new-course-code" class="form-control" placeholder="Code (e.g. CSE 3205)" required>
+                <input type="text" id="new-course-title" class="form-control" placeholder="Title (e.g. Computer Networks)" required>
+                <input type="number" step="0.5" id="new-course-credits" class="form-control" placeholder="Credits (3.0)" required>
+                <select id="new-course-teacher" class="form-control">
+                  <option value="">-- Assign Teacher --</option>
+                </select>
+                <button type="submit" class="btn btn-primary">+ Create Course</button>
+              </div>
+            </form>
+
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Title</th>
+                    <th>Credits</th>
+                    <th>Assigned Teacher</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-courses-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Enrollments Sub-tab -->
+          <div id="admin-enrollments-tab" style="display: none;">
+            <h3 class="card-title">Student Course Enrollments</h3>
+
+            <form id="enroll-student-form" onsubmit="handleEnrollStudent(event)" style="background: #f8fafc; padding: 1rem; border-radius: var(--radius); margin-bottom: 1.5rem;">
+              <h4 style="margin-bottom: 0.5rem; font-size: 0.95rem;">Enroll Student into Course</h4>
+              <div class="grid" style="grid-template-columns: 2fr 2fr 1fr 1fr; gap: 0.5rem;">
+                <select id="enroll-student-id" class="form-control" required>
+                  <option value="">-- Select Student --</option>
+                </select>
+                <select id="enroll-course-id" class="form-control" required>
+                  <option value="">-- Select Course --</option>
+                </select>
+                <input type="text" id="enroll-semester" class="form-control" placeholder="Semester (e.g. Fall 2026)" value="Fall 2026" required>
+                <button type="submit" class="btn btn-primary">+ Enroll</button>
+              </div>
+            </form>
+
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Enrollment ID</th>
+                    <th>Student Roll</th>
+                    <th>Student Name</th>
+                    <th>Course Code</th>
+                    <th>Course Title</th>
+                    <th>Semester</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-enrollments-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TEACHER DASHBOARD -->
+      <div id="teacher-dashboard" style="display: none;">
+        <div class="card">
+          <h2 class="card-title">Teacher Portal: Assigned Courses & Grading</h2>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Course Code</th>
+                  <th>Course Title</th>
+                  <th>Credits</th>
+                  <th>Enrolled Students</th>
+                </tr>
+              </thead>
+              <tbody id="teacher-courses-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="teacher-grade-card" class="card" style="display: none;">
+          <h3 class="card-title" id="teacher-course-title">Grade Course Students</h3>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Enrollment ID</th>
+                  <th>Student Roll</th>
+                  <th>Student Name</th>
+                  <th>Marks (0-100)</th>
+                  <th>Letter Grade</th>
+                  <th>Grade Point</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="teacher-grade-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- STUDENT DASHBOARD -->
+      <div id="student-dashboard" style="display: none;">
+        <div class="card">
+          <h2 class="card-title">My Profile & Academic Overview</h2>
+          <div id="student-profile-info" style="font-size: 0.95rem; line-height: 1.8;"></div>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">My Enrolled Courses & Grades</h2>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Course Code</th>
+                  <th>Course Title</th>
+                  <th>Semester</th>
+                  <th>Marks</th>
+                  <th>Letter Grade</th>
+                  <th>Grade Point</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
+              <tbody id="student-results-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
