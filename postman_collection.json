@@ -1,0 +1,276 @@
+{
+  "info": {
+    "name": "University Management System - CSE 3220 API",
+    "_postman_id": "c869d25e-42ef-457e-9bf8-16478985167b",
+    "description": "Postman API Collection for CSE 3220 University Management System Lab Assignment. Uses cookie session authentication.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login - Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Login - Teacher",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"dr_karim\",\n  \"password\": \"teacher123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Login - Student",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"student_sakib\",\n  \"password\": \"student123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Register Student",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"new_student_2026\",\n  \"password\": \"pass123456\",\n  \"fullName\": \"Hasan Mahmud\",\n  \"email\": \"hasan@stud.kuet.ac.bd\",\n  \"role\": \"ROLE_STUDENT\",\n  \"studentRoll\": \"2007050\",\n  \"department\": \"Computer Science & Engineering\",\n  \"series\": 2022\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Get Current Session User (Me)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Users",
+      "item": [
+        {
+          "name": "Get All Users (Admin Only)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Courses",
+      "item": [
+        {
+          "name": "Get All Courses",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/courses",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "courses"]
+            }
+          }
+        },
+        {
+          "name": "Create Course (Admin Only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courseCode\": \"CSE 3205\",\n  \"courseTitle\": \"Computer Networks\",\n  \"credits\": 3.0,\n  \"description\": \"Network layers, TCP/UDP, and routing protocols.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/courses",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "courses"]
+            }
+          }
+        },
+        {
+          "name": "Get Teacher Assigned Courses",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/my-courses",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "courses", "my-courses"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Enrollments",
+      "item": [
+        {
+          "name": "Enroll Student (Admin Only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": 1,\n  \"courseId\": 3,\n  \"semester\": \"Fall 2026\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enrollments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "enrollments"]
+            }
+          }
+        },
+        {
+          "name": "Get My Enrollments (Student Only)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/enrollments/my-courses",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "enrollments", "my-courses"]
+            }
+          }
+        },
+        {
+          "name": "Get Enrollments By Course (Teacher/Admin)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/enrollments/course/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "enrollments", "course", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Results & Grades",
+      "item": [
+        {
+          "name": "Grade Student (Teacher/Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enrollmentId\": 1,\n  \"marks\": 82.5,\n  \"remarks\": \"Good lab submission\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/results",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "results"]
+            }
+          }
+        },
+        {
+          "name": "Get My Results (Student Only)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/results/my-results",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "results", "my-results"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    }
+  ]
+}
