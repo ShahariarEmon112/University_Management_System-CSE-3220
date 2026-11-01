@@ -4,6 +4,7 @@ import com.kuet.cse.ums.dto.UserResponseDto;
 import com.kuet.cse.ums.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -33,8 +34,8 @@ public class UserController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, String>> deleteUser(@PathVariable Long id) {
-        userService.deleteUser(id);
+    public ResponseEntity<Map<String, String>> deleteUser(@PathVariable Long id, Authentication authentication) {
+        userService.deleteUser(id, authentication);
         return ResponseEntity.ok(Map.of("message", "User with ID " + id + " deleted successfully."));
     }
 }

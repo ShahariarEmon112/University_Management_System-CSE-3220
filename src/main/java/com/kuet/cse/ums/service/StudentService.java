@@ -7,6 +7,8 @@ import com.kuet.cse.ums.entity.User;
 import com.kuet.cse.ums.exception.BadRequestException;
 import com.kuet.cse.ums.exception.ResourceNotFoundException;
 import com.kuet.cse.ums.exception.UnauthorizedException;
+import com.kuet.cse.ums.repository.EnrollmentRepository;
+import com.kuet.cse.ums.repository.ResultRepository;
 import com.kuet.cse.ums.repository.StudentRepository;
 import com.kuet.cse.ums.repository.UserRepository;
 import org.springframework.security.core.Authentication;
@@ -21,10 +23,17 @@ public class StudentService {
 
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
+    private final EnrollmentRepository enrollmentRepository;
+    private final ResultRepository resultRepository;
 
-    public StudentService(StudentRepository studentRepository, UserRepository userRepository) {
+    public StudentService(StudentRepository studentRepository,
+                          UserRepository userRepository,
+                          EnrollmentRepository enrollmentRepository,
+                          ResultRepository resultRepository) {
         this.studentRepository = studentRepository;
         this.userRepository = userRepository;
+        this.enrollmentRepository = enrollmentRepository;
+        this.resultRepository = resultRepository;
     }
 
     public List<StudentDto> getAllStudents() {
@@ -64,10 +73,13 @@ public class StudentService {
         // Only ADMIN or the student themselves can update their profile
         enforceStudentPrivacy(student, authentication);
 
-        if (dto.getDepartment() != null) {
+        // Department and series are official records: only an admin may change them
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals(Role.ROLE_ADMIN.name()));
+        if (isAdmin && dto.getDepartment() != null) {
             student.setDepartment(dto.getDepartment());
         }
-        if (dto.getSeries() != null) {
+        if (isAdmin && dto.getSeries() != null) {
             student.setSeries(dto.getSeries());
         }
         if (dto.getPhoneNumber() != null) {
@@ -84,7 +96,14 @@ public class StudentService {
     public void deleteStudent(Long id) {
         Student student = studentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + id));
+        // Delete in dependency order: results -> enrollments -> student -> login account
+        resultRepository.deleteAll(resultRepository.findByEnrollmentStudentId(student.getId()));
+        enrollmentRepository.deleteAll(enrollmentRepository.findByStudentId(student.getId()));
+        User user = student.getUser();
         studentRepository.delete(student);
+        if (user != null) {
+            userRepository.delete(user);
+        }
     }
 
     private void enforceStudentPrivacy(Student student, Authentication authentication) {

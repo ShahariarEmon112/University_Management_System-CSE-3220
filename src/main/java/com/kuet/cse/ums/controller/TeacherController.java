@@ -39,8 +39,9 @@ public class TeacherController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
-    public ResponseEntity<TeacherDto> updateTeacher(@PathVariable Long id, @Valid @RequestBody TeacherDto dto) {
-        return ResponseEntity.ok(teacherService.updateTeacher(id, dto));
+    public ResponseEntity<TeacherDto> updateTeacher(@PathVariable Long id, @Valid @RequestBody TeacherDto dto,
+                                                    Authentication authentication) {
+        return ResponseEntity.ok(teacherService.updateTeacher(id, dto, authentication));
     }
 
     @DeleteMapping("/{id}")
