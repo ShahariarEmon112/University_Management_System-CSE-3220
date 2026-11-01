@@ -1,0 +1,135 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Runs one group of tests per job, so each group shows up separately
+  # (green or red) on the Actions page.
+  # ---------------------------------------------------------------------------
+  unit-tests:
+    name: Unit tests (6)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Run unit tests (Mockito, no Spring, no database)
+        run: mvn -B test -Dgroups=unit
+      - name: Test summary
+        if: always()
+        run: python3 .github/scripts/test_summary.py "Unit tests" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-test-reports
+          path: target/surefire-reports/
+
+  integration-tests:
+    name: Integration tests (3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Run integration tests (full app + HTTP + security + H2)
+        run: mvn -B test -Dgroups=integration
+      - name: Test summary
+        if: always()
+        run: python3 .github/scripts/test_summary.py "Integration tests" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-reports
+          path: target/surefire-reports/
+
+  database-tests:
+    name: Database tests (MySQL 8)
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root_ci_pass
+          MYSQL_DATABASE: ums_test
+          MYSQL_USER: ums_user
+          MYSQL_PASSWORD: ums_ci_pass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -proot_ci_pass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      SPRING_DATASOURCE_URL: jdbc:mysql://localhost:3306/ums_test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: ums_user
+      SPRING_DATASOURCE_PASSWORD: ums_ci_pass
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Run database tests against a real MySQL 8 container
+        run: mvn -B test -Dgroups=database
+      - name: Show tables created in MySQL
+        if: always()
+        run: mysql -h 127.0.0.1 -uums_user -pums_ci_pass ums_test -e "SHOW TABLES;" || true
+      - name: Test summary
+        if: always()
+        run: python3 .github/scripts/test_summary.py "Database tests (MySQL 8)" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: database-test-reports
+          path: target/surefire-reports/
+
+  regression-tests:
+    name: Regression tests (services & security)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Run regression tests
+        run: mvn -B test -Dgroups=regression
+      - name: Test summary
+        if: always()
+        run: python3 .github/scripts/test_summary.py "Regression tests" >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: Build application JAR
+    needs: [ unit-tests, integration-tests, database-tests, regression-tests ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Package (tests already passed in the jobs above)
+        run: mvn -B package -DskipTests
+      - uses: actions/upload-artifact@v4
+        with:
+          name: application-jar
+          path: target/*.jar
