@@ -76,13 +76,27 @@ public class EnrollmentService {
         Course course = courseRepository.findById(dto.getCourseId())
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + dto.getCourseId()));
 
-        String semester = dto.getSemester().trim();
+        String semester = normalizeSemester(dto.getSemester());
         if (enrollmentRepository.existsByStudentIdAndCourseIdAndSemester(student.getId(), course.getId(), semester)) {
             throw new BadRequestException("Student is already enrolled in " + course.getCourseCode() + " for semester " + semester);
         }
 
         Enrollment enrollment = new Enrollment(student, course, semester);
         return EnrollmentDto.fromEntity(enrollmentRepository.save(enrollment));
+    }
+
+    /**
+     * Normalises user-typed semester names so "  fall   2026 " and "Fall 2026" are treated
+     * as the same semester: trims, collapses spaces and capitalises each word.
+     */
+    static String normalizeSemester(String raw) {
+        StringBuilder sb = new StringBuilder();
+        for (String word : raw.trim().split("\\s+")) {
+            if (word.isEmpty()) continue;
+            if (sb.length() > 0) sb.append(' ');
+            sb.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1).toLowerCase());
+        }
+        return sb.toString();
     }
 
     @Transactional
