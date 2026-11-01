@@ -1,0 +1,48 @@
+services:
+  mysql-db:
+    image: mysql:8.0
+    container_name: ums-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_secret_pass
+      MYSQL_DATABASE: ums_db
+      MYSQL_USER: ums_user
+      MYSQL_PASSWORD: ums_secret_pass
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "ums_user", "-pums_secret_pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - ums-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ums-app
+    restart: unless-stopped
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/ums_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: ums_user
+      SPRING_DATASOURCE_PASSWORD: ums_secret_pass
+    ports:
+      - "8080:8080"
+    networks:
+      - ums-network
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  ums-network:
+    driver: bridge
