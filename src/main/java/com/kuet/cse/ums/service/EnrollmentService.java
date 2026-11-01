@@ -10,6 +10,7 @@ import com.kuet.cse.ums.exception.ResourceNotFoundException;
 import com.kuet.cse.ums.exception.UnauthorizedException;
 import com.kuet.cse.ums.repository.CourseRepository;
 import com.kuet.cse.ums.repository.EnrollmentRepository;
+import com.kuet.cse.ums.repository.ResultRepository;
 import com.kuet.cse.ums.repository.StudentRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -24,13 +25,16 @@ public class EnrollmentService {
     private final EnrollmentRepository enrollmentRepository;
     private final StudentRepository studentRepository;
     private final CourseRepository courseRepository;
+    private final ResultRepository resultRepository;
 
     public EnrollmentService(EnrollmentRepository enrollmentRepository,
                              StudentRepository studentRepository,
-                             CourseRepository courseRepository) {
+                             CourseRepository courseRepository,
+                             ResultRepository resultRepository) {
         this.enrollmentRepository = enrollmentRepository;
         this.studentRepository = studentRepository;
         this.courseRepository = courseRepository;
+        this.resultRepository = resultRepository;
     }
 
     public List<EnrollmentDto> getAllEnrollments() {
@@ -72,11 +76,12 @@ public class EnrollmentService {
         Course course = courseRepository.findById(dto.getCourseId())
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + dto.getCourseId()));
 
-        if (enrollmentRepository.existsByStudentIdAndCourseIdAndSemester(student.getId(), course.getId(), dto.getSemester())) {
-            throw new BadRequestException("Student is already enrolled in " + course.getCourseCode() + " for semester " + dto.getSemester());
+        String semester = dto.getSemester().trim();
+        if (enrollmentRepository.existsByStudentIdAndCourseIdAndSemester(student.getId(), course.getId(), semester)) {
+            throw new BadRequestException("Student is already enrolled in " + course.getCourseCode() + " for semester " + semester);
         }
 
-        Enrollment enrollment = new Enrollment(student, course, dto.getSemester());
+        Enrollment enrollment = new Enrollment(student, course, semester);
         return EnrollmentDto.fromEntity(enrollmentRepository.save(enrollment));
     }
 
@@ -84,6 +89,8 @@ public class EnrollmentService {
     public void deleteEnrollment(Long id) {
         Enrollment enrollment = enrollmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Enrollment not found with id: " + id));
+        // A graded enrollment has a result row pointing at it; remove that first
+        resultRepository.findByEnrollmentId(enrollment.getId()).ifPresent(resultRepository::delete);
         enrollmentRepository.delete(enrollment);
     }
 }

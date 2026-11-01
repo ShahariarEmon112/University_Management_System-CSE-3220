@@ -6,6 +6,8 @@ import com.kuet.cse.ums.entity.Teacher;
 import com.kuet.cse.ums.exception.BadRequestException;
 import com.kuet.cse.ums.exception.ResourceNotFoundException;
 import com.kuet.cse.ums.repository.CourseRepository;
+import com.kuet.cse.ums.repository.EnrollmentRepository;
+import com.kuet.cse.ums.repository.ResultRepository;
 import com.kuet.cse.ums.repository.TeacherRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,10 +20,17 @@ public class CourseService {
 
     private final CourseRepository courseRepository;
     private final TeacherRepository teacherRepository;
+    private final EnrollmentRepository enrollmentRepository;
+    private final ResultRepository resultRepository;
 
-    public CourseService(CourseRepository courseRepository, TeacherRepository teacherRepository) {
+    public CourseService(CourseRepository courseRepository,
+                         TeacherRepository teacherRepository,
+                         EnrollmentRepository enrollmentRepository,
+                         ResultRepository resultRepository) {
         this.courseRepository = courseRepository;
         this.teacherRepository = teacherRepository;
+        this.enrollmentRepository = enrollmentRepository;
+        this.resultRepository = resultRepository;
     }
 
     public List<CourseDto> getAllCourses() {
@@ -46,13 +55,14 @@ public class CourseService {
 
     @Transactional
     public CourseDto createCourse(CourseDto dto) {
-        if (courseRepository.existsByCourseCode(dto.getCourseCode())) {
-            throw new BadRequestException("Course code '" + dto.getCourseCode() + "' already exists.");
+        String code = dto.getCourseCode().trim().toUpperCase();
+        if (courseRepository.existsByCourseCode(code)) {
+            throw new BadRequestException("Course code '" + code + "' already exists.");
         }
 
         Course course = new Course();
-        course.setCourseCode(dto.getCourseCode());
-        course.setCourseTitle(dto.getCourseTitle());
+        course.setCourseCode(code);
+        course.setCourseTitle(dto.getCourseTitle().trim());
         course.setCredits(dto.getCredits());
         course.setDescription(dto.getDescription());
 
@@ -70,14 +80,24 @@ public class CourseService {
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
 
-        if (dto.getCourseTitle() != null) course.setCourseTitle(dto.getCourseTitle());
+        if (dto.getCourseCode() != null) {
+            String code = dto.getCourseCode().trim().toUpperCase();
+            if (!code.equals(course.getCourseCode()) && courseRepository.existsByCourseCode(code)) {
+                throw new BadRequestException("Course code '" + code + "' already exists.");
+            }
+            course.setCourseCode(code);
+        }
+        if (dto.getCourseTitle() != null) course.setCourseTitle(dto.getCourseTitle().trim());
         if (dto.getCredits() != null) course.setCredits(dto.getCredits());
         if (dto.getDescription() != null) course.setDescription(dto.getDescription());
 
+        // A full update replaces the teacher: null means "unassigned"
         if (dto.getTeacherId() != null) {
             Teacher teacher = teacherRepository.findById(dto.getTeacherId())
                     .orElseThrow(() -> new ResourceNotFoundException("Teacher not found with id: " + dto.getTeacherId()));
             course.setTeacher(teacher);
+        } else {
+            course.setTeacher(null);
         }
 
         return CourseDto.fromEntity(courseRepository.save(course));
@@ -87,6 +107,9 @@ public class CourseService {
     public void deleteCourse(Long id) {
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
+        // Remove dependent rows first, otherwise the foreign keys block the delete
+        resultRepository.deleteAll(resultRepository.findByEnrollmentCourseId(course.getId()));
+        enrollmentRepository.deleteAll(enrollmentRepository.findByCourseId(course.getId()));
         courseRepository.delete(course);
     }
 }
