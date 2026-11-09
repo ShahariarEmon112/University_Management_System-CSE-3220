@@ -199,7 +199,6 @@ Tests are grouped with JUnit 5 `@Tag`s and each group runs as its own job in Git
 | **Unit (6)** | `unit` | `unit/ServiceUnitTest.java` | Single classes in isolation with Mockito mocks: grade boundaries, sign-up role rule, password hashing, duplicate course code, duplicate enrollment, teacher grading permission. |
 | **Integration (3)** | `integration` | `integration/ApiIntegrationTest.java` | Whole app over HTTP with real login sessions: login/logout, admin creates course & enrolls student, teacher grades and student sees the grade. |
 | **Database (5)** | `database` | `database/RepositoryDatabaseTest.java` | Real SQL with `@DataJpaTest`: save/find, UNIQUE username, UNIQUE enrollment, join queries, FOREIGN KEY on graded enrollments. Runs on **MySQL 8** in CI. |
-| Regression (17) | `regression` | `service/…`, `security/…` | Earlier service and security tests, including the delete fixes. |
 
 Run a group locally:
 
