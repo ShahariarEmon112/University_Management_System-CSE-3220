@@ -1,247 +1,204 @@
-# University Management System — CSE 3220 Lab Assignment
+# University Management System — Testing & GitHub Actions Explanation
 
-A clean, beginner-friendly, and secure **University Management System (UMS)** built with **Java 21**, **Spring Boot 3.3.4**, **Spring Security**, **Spring Data JPA / Hibernate**, and **MySQL 8**, fully containerized using **Docker & Docker Compose**.
+## 1. 30-Second Summary (say this first)
 
-Developed for **Khulna University of Engineering & Technology (KUET)** — Department of Computer Science & Engineering.
-
----
-
-## 1. Architecture Overview
-
-The system uses a classical, layered Spring Boot architecture:
-
-```
-[ Web Browser / Postman Client ]
-               │ (HTTP / JSON / Session Cookies)
-               ▼
-┌──────────────────────────────────────────────┐
-│  Spring Security Filter Chain                │
-│  - BCryptPasswordEncoder                     │
-│  - Session Management (JSESSIONID)           │
-│  - Role-Based Access Control (@PreAuthorize) │
-└──────────────────────┬───────────────────────┘
-                       ▼
-┌──────────────────────────────────────────────┐
-│  REST Controllers (Presentation Layer)        │
-│  - AuthController, UserController            │
-│  - StudentController, TeacherController      │
-│  - CourseController, EnrollmentController    │
-│  - ResultController                          │
-└──────────────────────┬───────────────────────┘
-                       ▼
-┌──────────────────────────────────────────────┐
-│  Service Layer (Business Logic & Privacy)    │
-│  - Enforces student data isolation           │
-│  - Grades calculation (Marks -> Letter & GPA)│
-│  - Input validation & entity mapping         │
-└──────────────────────┬───────────────────────┘
-                       ▼
-┌──────────────────────────────────────────────┐
-│  Spring Data JPA Repositories (Data Access)  │
-└──────────────────────┬───────────────────────┘
-                       ▼
-┌──────────────────────────────────────────────┐
-│  MySQL 8 Database Container (ums_db)         │
-│  (Persisted via Docker Named Volume)         │
-└──────────────────────────────────────────────┘
-```
+"My project is a Spring Boot university management system. I wrote three kinds of tests: 6 unit tests, 3 integration tests and 5 database tests. I use JUnit 5 tags to split them into groups. GitHub Actions runs each group as a separate job on every push, and the database tests run against a real MySQL 8 database. To show that CI catches bugs, I first pushed a test that exposed a bug, so CI went red. Then I pushed the fix, and CI went green."
 
 ---
 
-## 2. User Roles & Permission Matrix
+## 2. The Three Kinds of Tests
 
-The application strictly implements 3 distinct roles:
+All test files are in: src/test/java/com/kuet/cse/ums/
 
-| Feature / Endpoint | ADMIN | TEACHER | STUDENT | Public (Anonymous) |
-|---|:---:|:---:|:---:|:---:|
-| User Registration | ✔ (any role) | ❌ | ❌ | ✔ (Student only) |
-| User Login / Logout | ✔ | ✔ | ✔ | ✔ |
-| View System Users (`/api/users`) | ✔ | ❌ | ❌ | ❌ |
-| Create & Delete Courses | ✔ | ❌ | ❌ | ❌ |
-| View Course Catalog | ✔ | ✔ | ✔ | ❌ |
-| View My Assigned Courses | ❌ | ✔ | ❌ | ❌ |
-| Enroll Student into Course | ✔ | ❌ | ❌ | ❌ |
-| View Course Enrollment Rosters | ✔ | ✔ (Assigned course only) | ❌ | ❌ |
-| Submit/Update Student Grades | ✔ | ✔ (Assigned course only) | ❌ | ❌ |
-| View Own Profile & Grades | ✔ | ✔ | ✔ (Own data only) | ❌ |
-| Web Portal Dashboard | Admin Dashboard | Teacher Portal | Student Portal | Login / Register |
+### A. Unit Tests (6) — unit/ServiceUnitTest.java
 
-> **Security Note:** In addition to URL pattern matching, fine-grained service-level checks guarantee that students cannot view other students' private grades or profiles (returns `403 Forbidden`).
+What they are:
+Each test checks one class alone. The classes it depends on, like the repositories, are replaced with fake objects made by Mockito (called "mocks"). No Spring, no database and no web server start, so they run in about 2 seconds.
 
----
+How to explain:
+"A unit test checks one piece of logic in isolation. For example, to test EnrollmentService I don't need a real database. I create a fake EnrollmentRepository with mock(), tell it what to return with when(...).thenReturn(...), and then check the service's behaviour. verify(...never()).save(...) proves nothing was saved."
 
-## 3. Demo Credentials (Development Only)
+| Test | What it checks |
+|---|---|
+| U1 | Marks convert to the right grade at each boundary: 80 → A+, 79.5 → A, 40 → D, 39.5 → F |
+| U2 | Someone who isn't logged in cannot sign up as ADMIN |
+| U3 | Sign-up hashes the password and creates a student profile |
+| U4 | A duplicate course code is rejected, even with different casing ("cse 3220" vs "CSE 3220") |
+| U5 | The same student can't be enrolled twice in one semester, even if it's typed as "  fall   2026 " (the fail → pass test) |
+| U6 | A teacher can't grade a course that belongs to another teacher |
 
-All accounts are pre-seeded at database startup via `DataInitializer.java` using BCrypt password hashing. Re-running the application will not duplicate records.
+Good one to walk through: U6. It builds a course owned by prof_rahim, then has dr_karim try to grade it. The test expects an UnauthorizedException and checks that nothing was saved.
 
-| Role | Username | Password | Notes |
-|---|---|---|---|
-| **ADMIN** | `admin` | `admin123` | System Administrator |
-| **TEACHER** | `dr_karim` | `teacher123` | Assigned to CSE 3220 & CSE 3200 |
-| **TEACHER** | `prof_rahim` | `teacher123` | Assigned to CSE 3211 |
-| **TEACHER** | `dr_nusrat` | `teacher123` | Assigned to CSE 3205 |
-| **STUDENT** | `student_sakib` | `student123` | Roll: 2007001 |
-| **STUDENT** | `student_tamim` | `student123` | Roll: 2007002 |
-| **STUDENT** | `student_mushfiq` | `student123` | Roll: 2007003 |
-| **STUDENT** | `student_mahmudullah` | `student123` | Roll: 2007004 |
+### B. Integration Tests (3) — integration/ApiIntegrationTest.java
 
----
+What they are:
+The whole application starts: security, controllers, services, the database and the demo data. The tests send real HTTP requests using MockMvc. They log in through /api/auth/login and reuse the session cookie, just like the browser does.
 
-## 4. Running the Application with Docker Compose (Recommended)
+How to explain:
+"Unit tests prove each part works alone. Integration tests prove the parts work together. Each test logs in for real, gets a session, and calls the API like the website would. @Transactional undoes each test's changes afterwards, so the tests don't affect each other."
 
-### Prerequisites:
-- Docker Engine & Docker Compose installed.
+| Test | Flow |
+|---|---|
+| I1 | Log in as a student → /api/auth/me returns that user (and no password) → log out → access is blocked (401) |
+| I2 | Admin creates course CSE 4100 → enrolls a student → the course roster shows them. Then a student tries to create a course and gets 403 Forbidden |
+| I3 | Teacher gives 72 marks → the API returns grade A- (3.50) → the student logs in and sees A- with the teacher's remarks |
 
-### Step 1: Start Services
-In the project root directory, run:
-```bash
-docker compose up -d --build
-```
-This will:
-1. Spin up the **MySQL 8.0** container with persistent volume `mysql_data`.
-2. Wait for MySQL to pass its internal health checks (`mysqladmin ping`).
-3. Build and launch the **Spring Boot 3.3.4** application container on port `8080`.
+### C. Database Tests (5) — database/RepositoryDatabaseTest.java
 
-### Step 2: Access the Application
-- **Web Interface:** Open your browser at [http://localhost:8080](http://localhost:8080)
-- **REST API Base URL:** `http://localhost:8080/api`
+What they are:
+@DataJpaTest loads only the database layer (entities and repositories) and runs real SQL. They check things the database itself enforces: UNIQUE rules, FOREIGN KEY rules, and queries that join tables.
 
-### Step 3: Check Logs
-```bash
-# View application logs
-docker compose logs -f app
+How to explain:
+"These test the database layer directly. Locally they use H2, an in-memory database running in MySQL mode. In GitHub Actions the same tests run against a real MySQL 8 database, because the workflow sets SPRING_DATASOURCE_URL to point at it. @AutoConfigureTestDatabase(replace = NONE) tells Spring not to swap in its own test database, so whatever database I configure is the one used."
 
-# View MySQL logs
-docker compose logs -f mysql-db
-```
+| Test | What it checks |
+|---|---|
+| D1 | A saved user can be found by username, and the role is stored correctly |
+| D2 | A duplicate username is rejected by the UNIQUE rule |
+| D3 | The same student, course and semester can't be enrolled twice (UNIQUE rule) |
+| D4 | Results can be found by student and by course across the enrollment table |
+| D5 | A graded enrollment can't be deleted directly because of the FOREIGN KEY rule |
 
-### Step 4: Stop Services
-```bash
-# Stop containers while preserving database volume
-docker compose down
-
-# To reset database and remove volume:
-docker compose down -v
-```
+Link D5 to the bug I fixed:
+"D5 shows why the delete button failed originally: the database blocks deleting an enrollment that a result still points to. So my fix deletes the result first, then the enrollment."
 
 ---
 
-## 5. Running Locally without Docker (Development Mode)
+## 3. How the Groups Are Separated (JUnit Tags)
 
-If you have a local MySQL instance or want to run tests with in-memory H2:
-
-```bash
-# Run tests (runs with H2 database automatically)
-mvn clean test
-
-# Package the application jar
-mvn clean package -DskipTests
-
-# Run the Spring Boot application (ensure MySQL is running on localhost:3306)
-mvn spring-boot:run
-```
-
----
-
-## 6. REST API Reference
-
-### Authentication Endpoints
-- `POST /api/auth/login` — Sign in with username and password. Sets HTTP session cookie (`JSESSIONID`).
-- `POST /api/auth/register` — Register a new account. Anonymous callers can only create `ROLE_STUDENT`; a logged-in admin can create any role.
-- `GET /api/auth/me` — Return currently logged-in user profile without password.
-- `POST /api/auth/logout` — Invalidate session and clear cookies.
-
-### Courses Endpoints
-- `GET /api/courses` — List all courses (Authenticated users).
-- `GET /api/courses/my-courses` — List courses assigned to logged-in teacher (`ROLE_TEACHER`).
-- `POST /api/courses` — Add new course (`ROLE_ADMIN`).
-- `PUT /api/courses/{id}` — Update course (`ROLE_ADMIN`).
-- `DELETE /api/courses/{id}` — Delete course and its enrollments/results (`ROLE_ADMIN`).
-
-### Enrollments Endpoints
-- `GET /api/enrollments` — List all enrollments (`ROLE_ADMIN`).
-- `GET /api/enrollments/my-courses` — List courses enrolled by logged-in student (`ROLE_STUDENT`).
-- `GET /api/enrollments/course/{courseId}` — List students enrolled in course (`ROLE_ADMIN`, `ROLE_TEACHER`).
-- `POST /api/enrollments` — Enroll student (`ROLE_ADMIN`).
-- `DELETE /api/enrollments/{id}` — Remove an enrollment and its result, if any (`ROLE_ADMIN`).
-
-### Users, Students & Teachers (deletion)
-- `DELETE /api/users/{id}` — Delete a user. A student's enrollments and results are removed with them; a teacher's courses are kept but become unassigned. Admins cannot delete themselves (`ROLE_ADMIN`).
-- `DELETE /api/students/{id}` / `DELETE /api/teachers/{id}` — Same behaviour, by profile id (`ROLE_ADMIN`).
-
-### Results & Grading Endpoints
-- `GET /api/results` — All results (`ROLE_ADMIN`).
-- `DELETE /api/results/{id}` — Delete a result (`ROLE_ADMIN`).
-- `GET /api/results/my-results` — View logged-in student's results (`ROLE_STUDENT`).
-- `GET /api/results/course/{courseId}` — View grades for a course (`ROLE_ADMIN`, or the `ROLE_TEACHER` assigned to it).
-- `POST /api/results` — Assign or update marks and remarks (`ROLE_ADMIN`, `ROLE_TEACHER`). Automatic calculation of Letter Grade and GPA:
-  - $\ge 80 \implies A+$ (4.00)
-  - $\ge 75 \implies A$ (3.75)
-  - $\ge 70 \implies A-$ (3.50)
-  - $\ge 65 \implies B+$ (3.25)
-  - $\ge 60 \implies B$ (3.00)
-  - $\ge 55 \implies B-$ (2.75)
-  - $\ge 50 \implies C+$ (2.50)
-  - $\ge 45 \implies C$ (2.25)
-  - $\ge 40 \implies D$ (2.00)
-  - $< 40 \implies F$ (0.00)
-
----
-
-## 7. Testing & Continuous Integration
-
-![CI](https://github.com/ShahariarEmon112/University_Management_System-CSE-3220/actions/workflows/ci.yml/badge.svg)
-
-Tests are grouped with JUnit 5 `@Tag`s and each group runs as its own job in GitHub Actions (`.github/workflows/ci.yml`).
-
-| Group | Tag | File | What it proves |
-|---|---|---|---|
-| **Unit (6)** | `unit` | `unit/ServiceUnitTest.java` | Single classes in isolation with Mockito mocks: grade boundaries, sign-up role rule, password hashing, duplicate course code, duplicate enrollment, teacher grading permission. |
-| **Integration (3)** | `integration` | `integration/ApiIntegrationTest.java` | Whole app over HTTP with real login sessions: login/logout, admin creates course & enrolls student, teacher grades and student sees the grade. |
-| **Database (5)** | `database` | `database/RepositoryDatabaseTest.java` | Real SQL with `@DataJpaTest`: save/find, UNIQUE username, UNIQUE enrollment, join queries, FOREIGN KEY on graded enrollments. Runs on **MySQL 8** in CI. |
-
-Run a group locally:
+Each test class has a tag at the top: @Tag("unit"), @Tag("integration") or @Tag("database").
+Maven can then run just one group:
 
 ```bash
 mvn test -Dgroups=unit
 mvn test -Dgroups=integration
-mvn test -Dgroups=database     # H2 locally; set SPRING_DATASOURCE_URL to use MySQL
-mvn test                       # everything
+mvn test -Dgroups=database
+mvn test                 # all 31 tests
 ```
 
-### Fail → pass demonstration
-Unit test **U5** was written first (test-driven): it expects enrolling a student twice in
-"Fall 2026" and "  fall   2026 " to be rejected. The commit
-`test: reject duplicate enrollment when semester casing differs` makes CI fail ❌, and the
-next commit `fix: normalize semester names before duplicate check` makes it pass ✅.
-Both runs are visible in the repository's **Actions** tab.
+Tip: run one of these live in front of the teacher. Seeing "Tests run: 6, Failures: 0" is convincing.
 
 ---
 
-## 8. Lab Viva Guide (Key Questions & Explanations)
+## 4. How GitHub Actions Works — .github/workflows/ci.yml
 
-### Q1: Why do we use BCrypt instead of MD5 or SHA-256 for passwords?
-> **Answer:** BCrypt includes a salt automatically and is an adaptive, computationally slow key-derivation function. As hardware gets faster, the work factor (cost) can be increased to make brute-force and rainbow table attacks infeasible. MD5 and SHA-256 are fast general cryptographic hash functions, making them susceptible to rapid GPU-based dictionary attacks.
+What it is:
+GitHub Actions is GitHub's CI (Continuous Integration) service. Every time I push, GitHub starts a fresh Ubuntu machine, downloads my code, and follows the steps in ci.yml.
 
-### Q2: How does Spring Security handle authentication and session authorization?
-> **Answer:**
-> 1. When a user submits credentials to `/api/auth/login`, Spring's `AuthenticationManager` verifies the username and password using `CustomUserDetailsService` and `BCryptPasswordEncoder`.
-> 2. On success, an `Authentication` token is stored in the `SecurityContext`.
-> 3. The `SecurityContext` is attached to the HTTP Session (`JSESSIONID`).
-> 4. Subsequent requests pass the `JSESSIONID` cookie. Spring Security's filter chain restores the context and checks `@PreAuthorize` or request matchers for roles.
+Walk through ci.yml top to bottom:
 
-### Q3: How do you prevent students from seeing each other's grades?
-> **Answer:** We enforce data isolation at the service layer in `StudentService.java` and `ResultService.java`. When a non-admin, non-teacher user requests a record, we extract the authenticated username from `SecurityContextHolder.getContext().getAuthentication().getName()` and ensure it matches the owner of that student record. If not, a `403 Forbidden` (`UnauthorizedException`) is thrown.
+1. on: push / pull_request / workflow_dispatch
+   When the workflow runs: on every push to main, on pull requests, and when I click "Run workflow" manually.
 
-### Q4: Why can't the app container connect to `localhost:3306` inside Docker Compose?
-> **Answer:** In Docker, each container has its own isolated network namespace and its own `localhost` (127.0.0.1 loopback). In `compose.yaml`, containers share a user-defined bridge network (`ums-network`). Docker's embedded DNS resolves the service name `mysql-db` to the MySQL container's IP. Hence, the JDBC URL is `jdbc:mysql://mysql-db:3306/ums_db`.
+2. jobs: there are 4 jobs. The first 3 run at the same time on separate machines:
+   - unit-tests → mvn -B test -Dgroups=unit
+   - integration-tests → mvn -B test -Dgroups=integration
+   - database-tests → mvn -B test -Dgroups=database (against MySQL)
+   - build → packages the JAR file
 
-### Q5: How do we avoid creating duplicate admin accounts on every container restart?
-> **Answer:** In `DataInitializer.java`, we execute a conditional check:
-> ```java
-> if (userRepository.existsByUsername("admin")) {
->     log.info("Database already initialized with admin user. Skipping.");
->     return;
-> }
-> ```
-> This makes the initialization idempotent and safe across restarts.
+3. Steps inside each job:
+   - actions/checkout@v4 → downloads the code
+   - actions/setup-java@v4 → installs Java 21 and caches Maven dependencies so later runs are faster
+   - then the mvn test command for that group
+
+4. The MySQL service (in the database-tests job):
+
+```yaml
+services:
+  mysql:
+    image: mysql:8.0
+```
+
+   "GitHub starts a real MySQL 8 database in Docker next to the test machine. The health check waits until MySQL is ready. The env: section sets SPRING_DATASOURCE_URL, which overrides the H2 setting, so the database tests run on real MySQL. There's also a step that runs SHOW TABLES to prove the tables were created in MySQL."
+
+5. Test summary:
+   .github/scripts/test_summary.py reads the test reports Maven produces and draws the ✅/❌ table at the bottom of each job's page.
+
+6. upload-artifact:
+   Saves the test reports and the final JAR so they can be downloaded from the run page.
+
+7. needs: [unit-tests, integration-tests, database-tests]
+   "The JAR is only built if all three test jobs pass. That's why in the failed run the build was skipped: broken code never gets packaged."
+
+---
+
+## 5. The Fail → Pass Story (most important part)
+
+Explain it as test-driven development:
+
+1. Run 1 (✅): "I set up CI and every test passed."
+
+2. Run 2 (❌): "Then I found a bug: an admin could enroll the same student twice by typing the semester differently, like 'Fall 2026' and '  fall   2026 '. I wrote test U5 first. It expects that second enrollment to be rejected. I pushed it and CI went red, because the code only removed spaces at the ends and didn't treat different casing as the same."
+
+3. Run 3 (✅): "I fixed EnrollmentService with a normalizeSemester() method. It trims, collapses extra spaces and capitalises each word, so both become 'Fall 2026'. I pushed the fix and CI went green."
+
+"This shows the CI really checks the code: a bug turns it red, and the fix turns it green."
+
+---
+
+## 6. What to Click While Showing the Teacher
+
+1. Open the repo: https://github.com/ShahariarEmon112/University_Management_System-CSE-3220
+   Point out the green CI badge in the README.
+
+2. Click "Commits" (or run git log --oneline in a terminal). Explain the conventional commit format (section 7).
+
+3. Open the Actions tab. There are three runs: ✅ ❌ ✅
+
+4. Click the ❌ run:
+   - The diagram shows 4 test jobs; "Unit tests (6)" is red and "Build application JAR" is skipped.
+   - Click "Unit tests (6)" and scroll to the summary:
+     duplicateEnrollmentWithDifferentSemesterCasingRejected ❌ Expected BadRequestException to be thrown, but nothing was thrown.
+
+5. Click the latest ✅ run:
+   - Every job is green.
+   - Open "Database tests (MySQL 8)", expand "Show tables created in MySQL", and show the tables.
+   - Show the summary tables with ✅ for every test.
+
+6. Open the code: ci.yml, then one test from each file (U6, I3, D5), then the normalizeSemester method in EnrollmentService.java.
+
+7. Optional: run mvn test -Dgroups=unit locally.
+
+---
+
+## 7. Commit Messages (Conventional Commits)
+
+"I used the Conventional Commits format: type: description"
+
+| Type | Meaning | Example from my repo |
+|---|---|---|
+| feat: | New feature | feat: implemented login |
+| fix: | Bug fix | fix: allow deleting courses and enrollments that have linked records |
+| fix!: / BREAKING CHANGE: | A change that breaks the old behaviour | fix!: restrict sign-up roles and make user deletion work |
+| test: | Adding tests | test: add database tests for repositories and constraints |
+| ci: | CI configuration | ci: add GitHub Actions workflow with separate test jobs |
+| docs: | Documentation | docs: add README with setup, API reference and testing guide |
+| chore: | Setup and maintenance | chore: initial Spring Boot project setup with Docker Compose |
+
+---
+
+## 8. Likely Questions and Short Answers
+
+Q: Unit test vs integration test?
+A: A unit test checks one class with fake dependencies and is fast. An integration test runs the whole app and checks the parts working together.
+
+Q: What is a mock?
+A: A fake object that returns what you tell it to, so you can test one class without a database.
+
+Q: Why H2 locally but MySQL in CI?
+A: H2 is fast and needs no setup. CI uses real MySQL to prove it works on the production database. The same test code runs on both; only the connection setting changes.
+
+Q: Why don't tests affect each other?
+A: @Transactional and @DataJpaTest undo each test's database changes afterwards, and each CI job starts on a fresh machine.
+
+Q: Why separate jobs?
+A: They run at the same time, which is faster, and you can see immediately which kind of test failed.
+
+Q: What does "needs" do?
+A: It makes the build job wait for all test jobs and skips it if any of them fail.
+
+Q: What happens if someone pushes broken code?
+A: CI turns red, GitHub shows a ❌ next to the commit, and the JAR isn't built. Run 2 shows exactly this.
+
+Q: What is -B in "mvn -B"?
+A: Batch mode. It gives clean, non-interactive output for CI logs.
